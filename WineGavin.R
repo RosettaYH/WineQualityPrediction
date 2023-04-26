@@ -1,12 +1,22 @@
 library(car)
 library(leaps)
 library(MASS)
+library(caret)
+library(corrplot)
+library(reshape)
 
 wine=winequality.white
 
 wine=within(wine,{
-  proportion.sulfur = free.sulfur.dioxide/total.sulfur.dioxide
+  proportion.sulfur = (free.sulfur.dioxide/total.sulfur.dioxide)*100
 })
+
+hist(wine$quality, breaks = 20, main = "Distribution of Sulfur Dioxide Proportions", xlab = "SO2 Proportion", ylab = "Frequency")
+
+wine_cor = cor(wine)
+corrplot(wine_cor, method = 'number', tl.col="black")
+
+summary(wine)
 
 head(wine)
 #########################
@@ -25,52 +35,32 @@ head(wine)
 
 ### BEST SUBSETS
 
-res=regsubsets(quality ~ fixed.acidity + volatile.acidity + citric.acid + residual.sugar + chlorides + density + pH + sulphates + alcohol + proportion.sulfur ,data=wine,nbest = 1,nvmax=11)
+res=regsubsets(quality ~ fixed.acidity+volatile.acidity+density+sulphates+alcohol+proportion.sulfur,data=wine,nbest = 1,nvmax=11,method="exhaustive")
 best.res=summary(res)
 
 results=cbind(best.res$outmat,round(best.res$rsq,3),round(best.res$adjr2,3),
               round(best.res$cp,2))
 
-colnames(results) = c("fixed.acidity", "volatile.acidity", "citric.acid", "residual.sugar", "chlorides", "density", "pH", "sulphates", "alcohol", "proportion.sulfur", "R2", "R2_adj", "Mallow's CP")
+colnames(results) = c("fixed.acidity", "volatile.acidity", "density", "sulphates", "alcohol", "proportion.sulfur", "R2", "R2_adj", "Mallow's CP")
 results
 
 write.table(results, file = "models.csv", sep = ",", quote = FALSE, row.names = F)
 
 newModel = lm(quality ~ fixed.acidity+volatile.acidity+density+pH+sulphates+alcohol+proportion.sulfur, data=wine)
-
 summary(newModel)
 vif(newModel)
 
-######################
-#analysis from Rosetta
-summary(wine)
+testnewModel = lm(quality ~ fixed.acidity+volatile.acidity+density+sulphates+alcohol+proportion.sulfur, data=wine)
+summary(testnewModel)
+vif(testnewModel)
 
-# Wine quality distribution 
-hist(wine$quality, breaks = 20, main = "Distribution of Quality Data", xlab = "Quality", ylab = "Frequency")
-cor(wine$quality, wine$citric.acid)
-
-# Correlation plot
-wine_cor = cor(wine) # analysis on github
-corrplot(wine_cor, method = 'number') #^^
-
-# Individual box-plots of variables
-par(mfrow=c(2, 2))
-for (i in 1:(length(wine)-1)) {
-  boxplot(wine[,i], main=names(wine[i]), type="l")
-}
-# box-plots
-par(mfrow=c(1, 1))
-meltData=melt(wine)
-boxplot(data=meltData, value~variable)
-
-
-
-res = 
-
+bestModel = lm(quality~fixed.acidity+volatile.acidity+density+sulphates+alcohol+proportion.sulfur, data=wine)
+summary(bestModel)
+vif(bestModel)
 ######################################
 ### CREATE FULL MODEL W/O ALTERCATIONS
 
-fullModel = lm(quality ~ fixed.acidity + volatile.acidity + citric.acid + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + sulphates + alcohol, 
+fullModel = lm(quality ~ fixed.acidity + volatile.acidity + citric.acid + chlorides + free.sulfur.dioxide + total.sulfur.dioxide + density + pH + residual.sugar +sulphates + alcohol, 
                      data = wine)
 summary(fullModel) #r^2_adj = 0.2631
 vif(fullModel) #vif > 2: total.sulfer.dioxide = 2.20, density = 3.20, alcohol = 3.00
